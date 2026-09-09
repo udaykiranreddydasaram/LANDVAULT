@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   BarChart,
   Bar,
@@ -18,24 +18,60 @@ import {
   AlertTriangle,
   MapPin,
   CheckCircle2,
+  RefreshCw,
 } from 'lucide-react';
 import { AnalyticsDashboardData } from '../types';
+import { api } from '../services/api';
 
 interface AnalyticsPageProps {
   analytics: AnalyticsDashboardData | null;
 }
 
-export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ analytics }) => {
-  if (!analytics) {
+export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ analytics: initialAnalytics }) => {
+  const [data, setData] = useState<AnalyticsDashboardData | null>(initialAnalytics);
+  const [loading, setLoading] = useState<boolean>(!initialAnalytics);
+
+  const fetchFreshData = async () => {
+    try {
+      setLoading(true);
+      const res = await api.getAnalyticsDashboard();
+      setData(res);
+    } catch (err) {
+      console.error('Failed to load analytics', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchFreshData();
+  }, []);
+
+  if (!data && loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-xs text-slate-400">Loading Analytics & Performance Metrics...</div>
+        <div className="text-xs text-slate-400 flex items-center gap-2">
+          <RefreshCw className="w-4 h-4 animate-spin text-emerald-400" />
+          <span>Loading Analytics & Performance Metrics...</span>
+        </div>
       </div>
     );
   }
 
-  const { metrics, confidence_distribution, top_rule_failures, village_stats, recent_ingestion_trend } =
-    analytics;
+  if (!data) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <button
+          onClick={fetchFreshData}
+          className="px-4 py-2 rounded-xl bg-slate-800 text-xs text-slate-300 hover:text-white"
+        >
+          Failed to load metrics. Click to retry.
+        </button>
+      </div>
+    );
+  }
+
+  const { metrics, confidence_distribution, top_rule_failures, village_stats, recent_ingestion_trend } = data;
 
   const confidenceData = [
     { name: 'High (90-100%)', count: confidence_distribution.high_count, fill: '#10b981' },
@@ -46,14 +82,24 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ analytics }) => {
   return (
     <div className="space-y-6">
       {/* Title */}
-      <div>
-        <h1 className="text-2xl font-extrabold text-white flex items-center gap-2.5">
-          <BarChart3 className="w-6 h-6 text-emerald-400" />
-          Analytics & System Intelligence
-        </h1>
-        <p className="text-sm text-slate-400 mt-1">
-          Real-time metrics on ingestion velocity, OCR confidence distribution, and cadastral validation performance.
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-extrabold text-white flex items-center gap-2.5">
+            <BarChart3 className="w-6 h-6 text-emerald-400" />
+            Analytics & System Intelligence
+          </h1>
+          <p className="text-sm text-slate-400 mt-1">
+            Real-time metrics on ingestion velocity, OCR confidence distribution, and cadastral validation performance.
+          </p>
+        </div>
+        <button
+          onClick={fetchFreshData}
+          disabled={loading}
+          className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition border border-slate-700 self-start"
+        >
+          <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-emerald-400' : ''}`} />
+          <span>Refresh Metrics</span>
+        </button>
       </div>
 
       {/* Top Metrics Row */}

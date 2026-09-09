@@ -18,9 +18,10 @@ import { api } from '../services/api';
 
 interface LandRecordsPageProps {
   onNavigateToMap: (surveyNo?: string) => void;
+  initialRecordId?: number | null;
 }
 
-export const LandRecordsPage: React.FC<LandRecordsPageProps> = ({ onNavigateToMap }) => {
+export const LandRecordsPage: React.FC<LandRecordsPageProps> = ({ onNavigateToMap, initialRecordId }) => {
   const [records, setRecords] = useState<LandRecord[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [search, setSearch] = useState<string>('');
@@ -36,6 +37,12 @@ export const LandRecordsPage: React.FC<LandRecordsPageProps> = ({ onNavigateToMa
         setLoading(true);
         const data = await api.listLandRecords();
         setRecords(data);
+        if (initialRecordId) {
+          const match = data.find((r) => r.id === initialRecordId);
+          if (match) {
+            openCertificate(match);
+          }
+        }
       } catch (err) {
         console.error(err);
       } finally {
@@ -43,7 +50,7 @@ export const LandRecordsPage: React.FC<LandRecordsPageProps> = ({ onNavigateToMa
       }
     }
     loadRecords();
-  }, []);
+  }, [initialRecordId]);
 
   const openCertificate = async (rec: LandRecord) => {
     setSelectedRecord(rec);

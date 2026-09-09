@@ -11,6 +11,7 @@ import { LandRecordsPage } from './pages/LandRecordsPage';
 import { GISMapPage } from './pages/GISMapPage';
 import { AnalyticsPage } from './pages/AnalyticsPage';
 import { AuditPage } from './pages/AuditPage';
+import { LoginPage } from './pages/LoginPage';
 import { DocumentItem, VerificationTask, AnalyticsDashboardData } from './types';
 import { api } from './services/api';
 
@@ -21,6 +22,7 @@ const AppContent: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [selectedDocId, setSelectedDocId] = useState<number | null>(null);
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
+  const [selectedRecordId, setSelectedRecordId] = useState<number | null>(null);
   const [focusSurveyNo, setFocusSurveyNo] = useState<string | undefined>(undefined);
 
   // Data state
@@ -45,10 +47,12 @@ const AppContent: React.FC = () => {
   };
 
   useEffect(() => {
-    refreshData();
-    const interval = setInterval(refreshData, 12000); // 12s polling
-    return () => clearInterval(interval);
-  }, []);
+    if (user) {
+      refreshData();
+      const interval = setInterval(refreshData, 12000); // 12s polling
+      return () => clearInterval(interval);
+    }
+  }, [user]);
 
   const pendingCount = tasks.filter((t) => t.status === 'PENDING').length;
 
@@ -57,6 +61,11 @@ const AppContent: React.FC = () => {
     setSelectedTaskId(null);
     if (tab === 'map' && typeof param === 'string') {
       setFocusSurveyNo(param);
+    }
+    if (tab === 'records' && typeof param === 'number') {
+      setSelectedRecordId(param);
+    } else if (tab === 'records' && !param) {
+      setSelectedRecordId(null);
     }
     setActiveTab(tab);
   };
@@ -68,6 +77,11 @@ const AppContent: React.FC = () => {
   const openVerificationStudio = (taskId: number) => {
     setSelectedTaskId(taskId);
   };
+
+  // If user is not authenticated, display dedicated Login Page (Step 1 & 2)
+  if (!user) {
+    return <LoginPage onLoginSuccess={refreshData} />;
+  }
 
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col selection:bg-emerald-500/30 selection:text-emerald-200">
@@ -127,11 +141,14 @@ const AppContent: React.FC = () => {
               onRefresh={refreshData}
             />
           ) : activeTab === 'records' ? (
-            <LandRecordsPage onNavigateToMap={(sNo) => navigateTo('map', sNo)} />
+            <LandRecordsPage
+              initialRecordId={selectedRecordId}
+              onNavigateToMap={(sNo) => navigateTo('map', sNo)}
+            />
           ) : activeTab === 'map' ? (
             <GISMapPage
               initialSurveyNo={focusSurveyNo}
-              onNavigateToRecord={(recId) => navigateTo('records')}
+              onNavigateToRecord={(recId) => navigateTo('records', recId)}
             />
           ) : activeTab === 'analytics' ? (
             <AnalyticsPage analytics={analytics} />

@@ -30,6 +30,7 @@ export const DocumentsPage: React.FC<DocumentsPageProps> = ({
   const [isUploading, setIsUploading] = useState<boolean>(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [lastUploadedDoc, setLastUploadedDoc] = useState<DocumentItem | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const filteredDocs = documents.filter((doc) => {
@@ -37,17 +38,15 @@ export const DocumentsPage: React.FC<DocumentsPageProps> = ({
     return doc.status === filter;
   });
 
-  const handleFileUpload = async (file: File) => {
+  const handleFileUpload = async (file: File, allowDuplicate: boolean = false) => {
     setIsUploading(true);
     setUploadError(null);
     setSuccessMsg(null);
     try {
-      const doc = await api.uploadDocument(file);
+      const doc = await api.uploadDocument(file, 'Pattadar Passbook / ROR', allowDuplicate);
+      setLastUploadedDoc(doc);
       setSuccessMsg(`Document "${doc.file_name}" uploaded and processed successfully! Status: ${doc.status}`);
       onRefresh();
-      if (doc.status === 'REQUIRES_VERIFICATION') {
-        setTimeout(() => onNavigateToVerification(), 1200);
-      }
     } catch (err: any) {
       setUploadError(err.message || 'Upload failed');
     } finally {
@@ -75,7 +74,7 @@ export const DocumentsPage: React.FC<DocumentsPageProps> = ({
       const res = await fetch(`http://localhost:8000/samples/${filename}`);
       const blob = await res.blob();
       const file = new File([blob], filename, { type: 'image/png' });
-      await handleFileUpload(file);
+      await handleFileUpload(file, true);
     } catch (err: any) {
       setUploadError(`Failed loading sample deed: ${err.message}`);
       setIsUploading(false);
@@ -154,9 +153,30 @@ export const DocumentsPage: React.FC<DocumentsPageProps> = ({
             </div>
           )}
           {successMsg && (
-            <div className="flex items-center gap-2 text-xs text-emerald-300 p-3 rounded-lg bg-emerald-950/40 border border-emerald-500/30">
-              <CheckCircle className="w-4 h-4 shrink-0" />
-              <span>{successMsg}</span>
+            <div className="space-y-2 p-3.5 rounded-xl bg-emerald-950/40 border border-emerald-500/30 text-xs">
+              <div className="flex items-center gap-2 text-emerald-300 font-semibold">
+                <CheckCircle className="w-4 h-4 shrink-0 text-emerald-400" />
+                <span>{successMsg}</span>
+              </div>
+              {lastUploadedDoc && (
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  <button
+                    onClick={() => onSelectDocument(lastUploadedDoc)}
+                    className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition flex items-center gap-1.5 shadow-sm shadow-emerald-950"
+                  >
+                    <FileSearch className="w-3.5 h-3.5" />
+                    <span>Inspect OCR Extraction & Rules</span>
+                  </button>
+                  {lastUploadedDoc.status === 'REQUIRES_VERIFICATION' && (
+                    <button
+                      onClick={onNavigateToVerification}
+                      className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition flex items-center gap-1.5"
+                    >
+                      <span>Open Verification Studio</span>
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>

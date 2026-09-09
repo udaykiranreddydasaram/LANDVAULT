@@ -1,6 +1,6 @@
 import React from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { Shield, UserCheck, Eye, ShieldCheck, Database, RefreshCw } from 'lucide-react';
+import { Shield, UserCheck, Eye, ShieldCheck, Database, RefreshCw, LogOut } from 'lucide-react';
 import { UserRole } from '../../types';
 
 interface NavbarProps {
@@ -9,7 +9,7 @@ interface NavbarProps {
 }
 
 export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
-  const { user, switchDemoRole } = useAuth();
+  const { user, switchDemoRole, logout } = useAuth();
 
   return (
     <header className="sticky top-0 z-50 glass-panel border-b border-slate-800/80 px-6 py-3 flex items-center justify-between">
@@ -86,12 +86,20 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
           </button>
         </div>
 
-        {/* Current Active User Pill */}
-        <div className="hidden sm:flex items-center gap-2 pl-2 border-l border-slate-800 text-right">
-          <div>
+        {/* Current Active User Pill & Logout */}
+        <div className="flex items-center gap-3 pl-2 border-l border-slate-800">
+          <div className="hidden sm:block text-right">
             <div className="text-xs font-semibold text-slate-200">{user?.full_name || 'Revenue Officer'}</div>
             <div className="text-[10px] text-slate-400">{user?.department || 'Revenue Dept'}</div>
           </div>
+          <button
+            onClick={logout}
+            className="p-1.5 rounded-lg bg-slate-800/80 hover:bg-rose-950/40 text-slate-400 hover:text-rose-300 border border-slate-700/60 hover:border-rose-500/30 transition flex items-center gap-1 text-xs"
+            title="Sign Out / Switch Account"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            <span className="hidden md:inline text-[11px]">Sign Out</span>
+          </button>
         </div>
       </div>
     </header>

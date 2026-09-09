@@ -195,6 +195,7 @@ async def process_document_pipeline(document_id: int, db: Session, current_user_
 async def upload_document(
     file: UploadFile = File(...),
     document_type: str = Form("Pattadar Passbook / ROR"),
+    allow_duplicate: bool = Form(False),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -206,13 +207,19 @@ async def upload_document(
     file_hash = calculate_sha256(contents)
 
     # Check exact duplicate document
-    dupe_checker = DuplicateDetector(db)
-    dupe_res = dupe_checker.check_duplicate_document(file_hash)
-    if not dupe_res.passed:
-        raise HTTPException(
-            status_code=409,
-            detail=dupe_res.message
-        )
+    if not allow_duplicate:
+        dupe_checker = DuplicateDetector(db)
+        dupe_res = dupe_checker.check_duplicate_document(file_hash)
+        if not dupe_res.passed:
+            raise HTTPException(
+                status_code=409,
+                detail=dupe_res.message
+            )
+    else:
+        # For testing/demo re-uploads, ensure unique hash for db constraint
+        existing = db.query(Document).filter(Document.file_hash == file_hash).first()
+        if existing:
+            file_hash = f"{file_hash[:58]}_{uuid.uuid4().hex[:5]}"
 
     # Save to disk
     ext = os.path.splitext(file.filename)[1] or ".png"

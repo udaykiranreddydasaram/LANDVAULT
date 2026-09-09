@@ -27,6 +27,10 @@ storage/uploads/*
 !storage/uploads/.gitkeep
 storage/processed/*
 !storage/processed/.gitkeep
+backend/storage/uploads/*
+!backend/storage/uploads/.gitkeep
+backend/storage/processed/*
+!backend/storage/processed/.gitkeep
 
 # Environment and IDE
 .env

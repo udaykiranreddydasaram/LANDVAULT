@@ -13,6 +13,7 @@ import {
   FileText,
   Sparkles,
   Info,
+  RefreshCw,
 } from 'lucide-react';
 import { VerificationStudioDetail, ExtractedField } from '../types';
 import { api } from '../services/api';
@@ -76,6 +77,29 @@ export const VerificationStudioPage: React.FC<VerificationStudioPageProps> = ({
       setTimeout(() => setMessage(null), 2500);
     } catch (err: any) {
       setMessage({ type: 'error', text: err.message });
+    }
+  };
+
+  const [validating, setValidating] = useState<boolean>(false);
+
+  // Full batch update & re-run of all 6 validation rules
+  const handleRerunValidation = async () => {
+    try {
+      setValidating(true);
+      await api.updateBatchFields(taskId, fieldValues);
+      const refreshed = await api.getVerificationStudioDetail(taskId);
+      setDetail(refreshed);
+      const fails = refreshed.validation_results.filter((vr) => vr.status === 'FAILED');
+      if (fails.length === 0) {
+        setMessage({ type: 'success', text: 'Validation engine re-executed: All rules PASSED! Record ready for approval.' });
+      } else {
+        setMessage({ type: 'error', text: `Validation engine re-executed: ${fails.length} exception(s) remain.` });
+      }
+      setTimeout(() => setMessage(null), 3500);
+    } catch (err: any) {
+      setMessage({ type: 'error', text: err.message || 'Validation failed' });
+    } finally {
+      setValidating(false);
     }
   };
 
@@ -194,6 +218,15 @@ export const VerificationStudioPage: React.FC<VerificationStudioPageProps> = ({
 
         {/* Global actions */}
         <div className="flex items-center gap-2 self-end sm:self-auto">
+          <button
+            onClick={handleRerunValidation}
+            disabled={validating || isSubmitting}
+            className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold transition flex items-center gap-1.5"
+            title="Re-run all validation rules against current field values"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${validating ? 'animate-spin text-emerald-400' : ''}`} />
+            <span>{validating ? 'Re-validating...' : 'Re-run Validation'}</span>
+          </button>
           <button
             onClick={() => setRejectionModalOpen(true)}
             disabled={isSubmitting}

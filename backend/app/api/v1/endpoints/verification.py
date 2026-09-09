@@ -200,6 +200,73 @@ def update_single_field(
     return {"message": "Field updated and live re-validated", "field": payload.field_name, "new_value": payload.value}
 
 
+@router.post("/tasks/{task_id}/batch-fields")
+def update_batch_fields(
+    task_id: int,
+    payload: BatchFieldUpdatePayload,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles("admin", "verifier"))
+):
+    task = db.query(VerificationTask).filter(VerificationTask.id == task_id).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="Verification task not found")
+
+    doc = db.query(Document).filter(Document.id == task.document_id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Associated document not found")
+
+    # Update all provided fields
+    for field_name, val in payload.fields.items():
+        field_obj = db.query(LandRecordField).filter(
+            LandRecordField.document_id == task.document_id,
+            LandRecordField.field_name == field_name
+        ).first()
+        if field_obj:
+            field_obj.verified_value = val
+            field_obj.is_verified = True
+            field_obj.confidence = 1.0
+
+    # Re-evaluate validation engine dynamically
+    fields = db.query(LandRecordField).filter(LandRecordField.document_id == task.document_id).all()
+    fields_dict = {f.field_name: (f.verified_value if f.is_verified else f.extracted_value) for f in fields}
+
+    val_engine = ValidationEngine(db)
+    results, requires_verif, is_disputed = val_engine.validate_fields(fields_dict, overall_confidence=0.95)
+
+    # Refresh validation results
+    db.query(ValidationResult).filter(ValidationResult.document_id == task.document_id).delete()
+    for vr in results:
+        db.add(ValidationResult(
+            document_id=task.document_id,
+            rule_code=vr.rule_code,
+            rule_name=vr.rule_name,
+            severity=vr.severity,
+            status=vr.status,
+            target_field=vr.target_field,
+            message=vr.message,
+            details=vr.details
+        ))
+
+    # Update task priority/notes if all rules pass
+    failures = [r for r in results if r.status == "FAILED"]
+    if not failures:
+        task.priority = "LOW"
+        task.notes = "All validation rules passed after verifier review."
+
+    db.commit()
+
+    AuditLogger.log_action(
+        db=db,
+        entity_name="verification_task",
+        entity_id=str(task.id),
+        action="EDIT_FIELDS_BATCH",
+        performed_by_id=current_user.id,
+        new_values=payload.fields
+    )
+
+    return {"message": "All fields updated and validation rules re-evaluated", "passed": len(failures) == 0, "failures_count": len(failures)}
+
+
 @router.post("/tasks/{task_id}/decision")
 def submit_verification_decision(
     task_id: int,

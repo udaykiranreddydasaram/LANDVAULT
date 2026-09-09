@@ -74,10 +74,17 @@ export const api = {
     return res.json();
   },
 
-  async uploadDocument(file: File, documentType: string = 'Pattadar Passbook / ROR'): Promise<DocumentItem> {
+  async uploadDocument(
+    file: File,
+    documentType: string = 'Pattadar Passbook / ROR',
+    allowDuplicate: boolean = false
+  ): Promise<DocumentItem> {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('document_type', documentType);
+    if (allowDuplicate) {
+      formData.append('allow_duplicate', 'true');
+    }
 
     const token = localStorage.getItem('landvault_token');
     const headers: HeadersInit = {};
@@ -132,6 +139,16 @@ export const api = {
       body: JSON.stringify({ field_name: fieldName, value }),
     });
     if (!res.ok) throw new Error('Failed to update field');
+    return res.json();
+  },
+
+  async updateBatchFields(taskId: number, fields: Record<string, string>): Promise<any> {
+    const res = await fetch(`${API_BASE}/verification/tasks/${taskId}/batch-fields`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ fields }),
+    });
+    if (!res.ok) throw new Error('Failed to update fields and re-validate');
     return res.json();
   },
 
